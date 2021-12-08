@@ -9,21 +9,21 @@ public class Schedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.PERSIST)
     @JoinColumn(name = "id_auditory")
     private Auditory auditory;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.PERSIST)
     @JoinColumn(name = "id_group")
     private Group group;
 
     private int week;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "id_day")
     private Day day;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "id_time")
     private Time time;
 
@@ -39,6 +39,10 @@ public class Schedule {
 
     public int getId() {
         return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public Auditory getAuditory() {
@@ -79,5 +83,14 @@ public class Schedule {
 
     public void setTime(Time time) {
         this.time = time;
+    }
+
+    @Override
+    public String toString() {
+        return auditory.getAuditory() + "\n" +
+                group.getGroup_() + "\n" +
+                week + "\n" +
+                day.getDay() + "\n" +
+                time.toString() + "\n";
     }
 }

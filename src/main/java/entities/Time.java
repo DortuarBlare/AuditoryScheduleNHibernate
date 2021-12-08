@@ -65,6 +65,6 @@ public class Time {
 
     @Override
     public String toString() {
-        return start_time;
+        return start_time + " - " + end_time;
     }
 }

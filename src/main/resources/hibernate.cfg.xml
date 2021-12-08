@@ -4,11 +4,11 @@
         "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
 <hibernate-configuration>
     <session-factory>
-        <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
-        <property name="hibernate.connection.url">jdbc:postgresql://localhost:5432/Auditory_schedule</property>
-        <property name="hibernate.connection.username">Scheduler</property>
-        <property name="hibernate.connection.password">159357</property>
-        <property name="dialect">org.hibernate.dialect.PostgreSQL95Dialect</property>
-        <property name="show_sql">true</property>
+        <property name = "hibernate.connection.driver_class">org.postgresql.Driver</property>
+        <property name = "hibernate.connection.url">jdbc:postgresql://localhost:5432/Auditory_schedule</property>
+        <property name = "hibernate.connection.username">Scheduler</property>
+        <property name = "hibernate.connection.password">159357</property>
+        <property name = "dialect">org.hibernate.dialect.PostgreSQL95Dialect</property>
+        <property name = "show_sql">true</property>
     </session-factory>
 </hibernate-configuration>

@@ -5,6 +5,8 @@ import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.Configuration;
 
+import java.util.logging.Level;
+
 public class HibernateSessionFactory {
     private static SessionFactory sessionFactory = null;
 
@@ -13,6 +15,7 @@ public class HibernateSessionFactory {
     public static SessionFactory getSessionFactory() {
         if (sessionFactory == null) {
             try {
+                java.util.logging.Logger.getLogger("org.hibernate").setLevel(Level.OFF);
                 Configuration configuration = new Configuration().configure();
                 configuration.addAnnotatedClass(Schedule.class);
                 configuration.addAnnotatedClass(Auditory.class);

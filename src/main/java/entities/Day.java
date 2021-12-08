@@ -27,7 +27,7 @@ public class Day {
         else if (day.compareTo("Вторник") == 0) return 2;
         else if (day.compareTo("Среда") == 0) return 3;
         else if (day.compareTo("Четверг") == 0) return 4;
-        else if (day.compareTo("Пятнциа") == 0) return 5;
+        else if (day.compareTo("Пятница") == 0) return 5;
         else if (day.compareTo("Суббота") == 0) return 6;
         else if (day.compareTo("Воскресенье") == 0) return 7;
         return 0;
