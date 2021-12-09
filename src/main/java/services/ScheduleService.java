@@ -49,40 +49,85 @@ public class ScheduleService implements Service<Schedule> {
         session.close();
 
         System.out.println();
-        for (int i = 0; i < list.size();) {
+        for (int i = 0; i < list.size(); i++) {
             Schedule schedule = list.get(i);
             System.out.println(schedule.getAuditory().getAuditory() + " аудитория занята в следующие недели и дни:");
             for (int j = i; j < list.size(); j++) {
-                /*if (j == list.size() - 1) {
-                    i = j;
-                    break;
-                }*/
                 if (schedule.getAuditory().getAuditory().compareTo(list.get(j).getAuditory().getAuditory()) == 0) {
                     System.out.print(list.get(j).getWeek() + " неделя: " + list.get(j).getDay().getDay());
                     for (int k = j + 1; k < list.size(); k++) {
-                        if (list.get(j).getWeek() == list.get(k).getWeek())
+                        if (list.get(j).getWeek() == list.get(k).getWeek() &&
+                                list.get(j).getAuditory().getAuditory().compareTo(list.get(k).getAuditory().getAuditory()) == 0)
                             System.out.print(" " + list.get(k).getDay().getDay());
                         else {
                             System.out.println();
                             j = k - 1;
                             break;
                         }
+                        if (k == list.size() - 1) j++;
                     }
                 }
                 else {
                     System.out.println();
-                    i = j;
+                    i = j - 1;
                     break;
                 }
-                i = j;
+                if (j == list.size() - 1) i++;
             }
-            if (i == list.size() - 1) break;
         }
         System.out.println("\n\nОстальные аудитории свободны в любое время");
     }
 
     public void findByNumberOfHours(int numberOfHours, int week) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery(
+                "SELECT S FROM Schedule S " +
+                   "WHERE S.week = " + week +
+                   " ORDER BY S.auditory, S.day"
+        );
+        List<Schedule> list = query.list();
+        session.close();
 
+        int amountOfLessons = (int) Math.ceil(((double) numberOfHours * 60) / 90);
+        int maxAmountOfLessons = 49 - amountOfLessons;
+
+        for (int i = 0; i < list.size(); i++) {
+            Schedule schedule = list.get(i);
+            System.out.println("\nНа " + week + " неделе " +
+                    schedule.getAuditory().getAuditory() + " аудитория занята в следующие дни и время:");
+            for (int j = i; j < list.size(); j++) {
+                if (schedule.getAuditory().getAuditory().compareTo(list.get(j).getAuditory().getAuditory()) == 0) {
+                    maxAmountOfLessons--;
+                    System.out.print(list.get(j).getDay().getDay() + ": "
+                            + list.get(j).getTime().getStart_time() + " - " + list.get(j).getTime().getEnd_time());
+                    for (int k = j + 1; k < list.size(); k++) {
+                        if (list.get(j).getDay().getDay().compareTo(list.get(k).getDay().getDay()) == 0 &&
+                                list.get(j).getAuditory().getAuditory().compareTo(list.get(k).getAuditory().getAuditory()) == 0) {
+                            maxAmountOfLessons--;
+                            System.out.print(" " + list.get(k).getTime().getStart_time() +
+                                    " - " + list.get(k).getTime().getEnd_time());
+                        }
+                        else {
+                            j = k - 1;
+                            break;
+                        }
+                        if (k == list.size() - 1) j++;
+                    }
+                    System.out.println();
+                }
+                else {
+                    i = j - 1;
+                    break;
+                }
+                if (j == list.size() - 1) i++;
+            }
+            if (maxAmountOfLessons < 0)
+                System.out.println("Данная аудитория не подойдет " + amountOfLessons + " занятий");
+            else
+                System.out.println("Данная аудитория подойдет для " + amountOfLessons + " занятий");
+            maxAmountOfLessons = 49 - amountOfLessons;
+        }
+        System.out.println("\n\nОстальные аудитории свободны в любое время");
     }
 
     @Override
