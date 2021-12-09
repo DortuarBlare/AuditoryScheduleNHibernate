@@ -87,7 +87,8 @@ public class Schedule {
 
     @Override
     public String toString() {
-        return auditory.getAuditory() + "\n" +
+        return
+                auditory.getAuditory() + "\n" +
                 group.getGroup_() + "\n" +
                 week + "\n" +
                 day.getDay() + "\n" +

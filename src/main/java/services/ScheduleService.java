@@ -1,9 +1,14 @@
 package services;
 
 import dataAccessObjects.ScheduleDAO;
-import entities.Schedule;
+import dataBaseConnection.HibernateSessionFactory;
+import entities.*;
 import interfaces.Service;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.hibernate.query.Query;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ScheduleService implements Service<Schedule> {
@@ -23,10 +28,68 @@ public class ScheduleService implements Service<Schedule> {
         return scheduleDAO.findAll();
     }
 
+    public List<Schedule> findAllOrdered() {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Schedule> list = query.list();
+        session.close();
+        return list;
+    }
+
+    public void findByTime(String startTime, String endTime) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery(
+                "SELECT S FROM Schedule S " +
+                   "INNER JOIN Time T on T.id = S.time " +
+                   "WHERE T.start_time = '" + startTime + "' " +
+                   "AND T.end_time = '" + endTime + "' " +
+                   "ORDER BY S.auditory, S.week, S.day"
+        );
+        List<Schedule> list = query.list();
+        session.close();
+
+        System.out.println();
+        for (int i = 0; i < list.size();) {
+            Schedule schedule = list.get(i);
+            System.out.println(schedule.getAuditory().getAuditory() + " аудитория занята в следующие недели и дни:");
+            for (int j = i; j < list.size(); j++) {
+                /*if (j == list.size() - 1) {
+                    i = j;
+                    break;
+                }*/
+                if (schedule.getAuditory().getAuditory().compareTo(list.get(j).getAuditory().getAuditory()) == 0) {
+                    System.out.print(list.get(j).getWeek() + " неделя: " + list.get(j).getDay().getDay());
+                    for (int k = j + 1; k < list.size(); k++) {
+                        if (list.get(j).getWeek() == list.get(k).getWeek())
+                            System.out.print(" " + list.get(k).getDay().getDay());
+                        else {
+                            System.out.println();
+                            j = k - 1;
+                            break;
+                        }
+                    }
+                }
+                else {
+                    System.out.println();
+                    i = j;
+                    break;
+                }
+                i = j;
+            }
+            if (i == list.size() - 1) break;
+        }
+        System.out.println("\n\nОстальные аудитории свободны в любое время");
+    }
+
+    public void findByNumberOfHours(int numberOfHours, int week) {
+
+    }
+
     @Override
     public void showAll() {
         int i = 1;
-        for (Schedule schedule: scheduleDAO.findAll()) {
+        System.out.println("Всё расписание:");
+        for (Schedule schedule: findAllOrdered()) {
             System.out.println("Порядк. номер:\t" + i++);
             System.out.println("Аудитория:\t\t" + schedule.getAuditory());
             System.out.println("Группа:\t\t\t" + schedule.getGroup());
@@ -41,13 +104,303 @@ public class ScheduleService implements Service<Schedule> {
         scheduleDAO.save(object);
     }
 
+    public void saveSchedule(String auditory, String group, int week,
+                             String day, String startTime, String endTime) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        if (violatesConstraint(auditory, week, day, startTime, endTime))
+            System.out.println("Введённое расписание нарушает ограничение уникальности");
+        else {
+            Transaction transaction = session.beginTransaction();
+            Query query = session.createQuery("SELECT A.id FROM Auditory A WHERE A.auditory = '" +
+                    auditory + "'");
+            List<Integer> list = query.list();
+            Auditory auditoryForSchedule = new Auditory(auditory);
+            if (list.size() != 0) auditoryForSchedule.setId(list.get(0));
+            else session.save(auditoryForSchedule);
+
+            query = session.createQuery("SELECT G.id FROM Group G WHERE G.group_ = '" +
+                    group + "'");
+            list = query.list();
+            Group groupForSchedule = new Group(group);
+            if (list.size() != 0) groupForSchedule.setId(list.get(0));
+            else session.save(groupForSchedule);
+            transaction.commit();
+
+            Schedule scheduleToAdd = new Schedule(
+                    auditoryForSchedule,
+                    groupForSchedule,
+                    week,
+                    new Day(day),
+                    new Time(startTime, endTime)
+            );
+
+            save(scheduleToAdd);
+        }
+
+        session.close();
+    }
+
     @Override
     public void update(Schedule object) {
         scheduleDAO.update(object);
     }
 
+    public void updateSchedule(int number, String auditory, String group, int week,
+                               String day, String startTime, String endTime) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Transaction transaction = session.beginTransaction();
+                Schedule scheduleToUpdate = scheduleList.get(0);
+
+                query = session.createQuery("SELECT A.id FROM Auditory A WHERE A.auditory = '" +
+                        auditory + "'");
+                List<Integer> list = query.list();
+                Auditory auditoryForSchedule = new Auditory(auditory);
+                boolean auditoryExist = true;
+                if (!list.isEmpty()) auditoryForSchedule.setId(list.get(0));
+                else {
+                    auditoryExist = false;
+                    session.save(auditoryForSchedule);
+                }
+
+                query = session.createQuery("SELECT G.id FROM Group G WHERE G.group_ = '" +
+                        group + "'");
+                list = query.list();
+                Group groupForSchedule = new Group(group);
+                boolean groupExist = true;
+                if (!list.isEmpty()) groupForSchedule.setId(list.get(0));
+                else {
+                    groupExist = false;
+                    session.save(groupForSchedule);
+                }
+
+                scheduleToUpdate.setAuditory(auditoryForSchedule);
+                scheduleToUpdate.setGroup(groupForSchedule);
+                scheduleToUpdate.setWeek(week);
+                scheduleToUpdate.setDay(new Day(day));
+                scheduleToUpdate.setTime(new Time(startTime, endTime));
+
+                if (violatesConstraint(scheduleToUpdate)) {
+                    if (!auditoryExist) session.delete(auditoryForSchedule);
+                    if (!groupExist) session.delete(groupForSchedule);
+                    System.out.println("Расписание с новым временем нарушает ограничение уникальности");
+                }
+                else {
+                    transaction.commit();
+                    update(scheduleToUpdate);
+                }
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public void updateScheduleAuditory(int number, String newAuditory) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Transaction transaction = session.beginTransaction();
+                Schedule scheduleToUpdate = scheduleList.get(0);
+
+                query = session.createQuery("SELECT A.id FROM Auditory A WHERE A.auditory = '" +
+                        newAuditory + "'");
+                List<Integer> list = query.list();
+                Auditory auditoryForSchedule = new Auditory(newAuditory);
+                boolean auditoryExist = true;
+                if (!list.isEmpty()) auditoryForSchedule.setId(list.get(0));
+                else {
+                    auditoryExist = false;
+                    session.save(auditoryForSchedule);
+                }
+
+                scheduleToUpdate.setAuditory(auditoryForSchedule);
+
+                if (violatesConstraint(scheduleToUpdate)) {
+                    if (!auditoryExist) session.delete(auditoryForSchedule);
+                    System.out.println("Расписание с новым временем нарушает ограничение уникальности");
+                }
+                else {
+                    transaction.commit();
+                    update(scheduleToUpdate);
+                }
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public void updateScheduleGroup(int number, String newGroup) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Transaction transaction = session.beginTransaction();
+                Schedule scheduleToUpdate = scheduleList.get(0);
+
+                query = session.createQuery("SELECT G.id FROM Group G WHERE G.group_ = '" +
+                        newGroup + "'");
+                List<Integer> list = query.list();
+                Group groupForSchedule = new Group(newGroup);
+                if (!list.isEmpty()) groupForSchedule.setId(list.get(0));
+                else session.save(groupForSchedule);
+                transaction.commit();
+
+                scheduleToUpdate.setGroup(groupForSchedule);
+
+                update(scheduleToUpdate);
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public void updateScheduleWeek(int number, int newWeek) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Schedule scheduleToUpdate = scheduleList.get(0);
+                scheduleToUpdate.setWeek(newWeek);
+                if (violatesConstraint(scheduleToUpdate))
+                    System.out.println("Расписание с новым временем нарушает ограничение уникальности");
+                else
+                    update(scheduleToUpdate);
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public void updateScheduleDay(int number, String newDay) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Schedule scheduleToUpdate = scheduleList.get(0);
+                scheduleToUpdate.setDay(new Day(newDay));
+                if (violatesConstraint(scheduleToUpdate))
+                    System.out.println("Расписание с новым временем нарушает ограничение уникальности");
+                else
+                    update(scheduleToUpdate);
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public void updateScheduleTime(int number, String newStartTime, String newEndTime) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Schedule scheduleToUpdate = scheduleList.get(0);
+                scheduleToUpdate.setTime(new Time(newStartTime, newEndTime));
+                if (violatesConstraint(scheduleToUpdate))
+                    System.out.println("Расписание с новым временем нарушает ограничение уникальности");
+                else
+                    update(scheduleToUpdate);
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
     @Override
     public void delete(Schedule object) {
         scheduleDAO.delete(object);
+    }
+
+    public void deleteSchedule(int number) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery("SELECT S.id FROM Schedule S ORDER BY S.auditory, S.group, S.week, S.day");
+        List<Integer> scheduleIdList = query.list();
+        if (!scheduleIdList.isEmpty()) {
+            List<Integer> idList = new ArrayList<>();
+            idList.addAll(scheduleIdList);
+            query = session.createQuery("SELECT S FROM Schedule S WHERE S.id = " + idList.get(number - 1));
+            List<Schedule> scheduleList = query.list();
+            if (!scheduleList.isEmpty()) {
+                Schedule scheduleToDelete = scheduleList.get(0);
+                delete(scheduleToDelete);
+            }
+            else System.out.println("Расписания с введенным порядковым номером не оказалось");
+        }
+        else System.out.println("Расписание отсутствует");
+        session.close();
+    }
+
+    public boolean violatesConstraint(Schedule schedule) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery(
+                "SELECT S.id FROM Schedule S " +
+                        "INNER JOIN Auditory A on A.id = S.auditory " +
+                        "INNER JOIN Group G on G.id = S.group " +
+                        "INNER JOIN Day D on D.id = S.day " +
+                        "INNER JOIN Time T on T.id = S.time " +
+                        "WHERE A.auditory = '" + schedule.getAuditory().getAuditory() + "' " +
+                        "AND S.week = " + schedule.getWeek() +
+                        " AND D.day = '" + schedule.getDay().getDay() + "' " +
+                        "AND T.start_time = '" + schedule.getTime().getStart_time() + "' " +
+                        "AND T.end_time = '" + schedule.getTime().getEnd_time() + "'"
+        );
+        List<Integer> list = query.list();
+        return !list.isEmpty();
+    }
+
+    public boolean violatesConstraint(String auditory, int week, String day, String startTime, String endTime) {
+        Session session = HibernateSessionFactory.getSessionFactory().openSession();
+        Query query = session.createQuery(
+                "SELECT S.id FROM Schedule S " +
+                        "INNER JOIN Auditory A on A.id = S.auditory " +
+                        "INNER JOIN Group G on G.id = S.group " +
+                        "INNER JOIN Day D on D.id = S.day " +
+                        "INNER JOIN Time T on T.id = S.time " +
+                        "WHERE A.auditory = '" + auditory + "' " +
+                        "AND S.week = " + week +
+                        " AND D.day = '" + day + "' " +
+                        "AND T.start_time = '" + startTime + "' " +
+                        "AND T.end_time = '" + endTime + "'"
+        );
+        List<Integer> list = query.list();
+        return !list.isEmpty();
     }
 }

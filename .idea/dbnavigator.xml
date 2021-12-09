@@ -37,9 +37,10 @@
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
     <open-files>
+      <object connection-id="5a00cba1-9a2b-4479-a687-2b7faf06c1eb" object-ref="schemas/public/tables/auditory" />
       <object connection-id="5a00cba1-9a2b-4479-a687-2b7faf06c1eb" object-ref="schemas/public/tables/group_" />
       <object connection-id="5a00cba1-9a2b-4479-a687-2b7faf06c1eb" object-ref="schemas/public/tables/schedule" />
-      <object connection-id="5a00cba1-9a2b-4479-a687-2b7faf06c1eb" object-ref="schemas/public/tables/auditory" />
+      <object connection-id="5a00cba1-9a2b-4479-a687-2b7faf06c1eb" object-ref="schemas/public/tables/time_" />
     </open-files>
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
